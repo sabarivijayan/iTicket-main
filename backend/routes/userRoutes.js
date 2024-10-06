@@ -1,9 +1,8 @@
 import express from "express";
-import { getAllUsers, getBookingsOfUser, getUserByEmail, getUserDetails, googleSignIn, login, sendOtp, signup, verifyOtp } from "../controllers/user-controller.js";
-import { verifyToken } from "../middleware/auth.js";
+import { getAllUsers, getBookingsOfUser, getUserByEmail, getUserDetails, googleSignIn, login, signup, verifyOtp } from "../controllers/userController.js";
 
-
-const userRouter = express.Router();
+const 
+userRouter = express.Router();
 
 // To get the all users
 userRouter.get("/", getAllUsers); //localhost:5000/user
@@ -17,12 +16,9 @@ userRouter.post("/signup", signup);
 userRouter.post("/login", login);
 
 // To get the bookings of the user
-userRouter.get("/bookings/:id", verifyToken, getBookingsOfUser);
+userRouter.get("/bookings/:id", getBookingsOfUser);
 
 userRouter.post("/google-signin",  googleSignIn);
-
-// Send OTP
-userRouter.post("/send-otp", sendOtp);
 
 // Verify OTP
 userRouter.post("/verify-otp", verifyOtp);
@@ -30,4 +26,4 @@ userRouter.post("/verify-otp", verifyOtp);
 userRouter.post("/getUserByEmail",  getUserByEmail);
 
 
-export default userRouter
+export default userRouter;

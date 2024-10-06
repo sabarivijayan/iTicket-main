@@ -30,12 +30,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use((req, res, next) => {
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-  next();
-});
-
 // API endpoints
 app.use("/api/movie", movieRouter);
 app.use("/images", express.static("uploads"));

@@ -8,20 +8,34 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: Number,
-    required: true,
+    required: function() {
+      return !this.isGoogleUser; // Phone required only for non-Google users
+    },
   },
-  password:{
+  password: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.isGoogleUser; // Password required only for non-Google users
+    },
     minLength: 6,
   },
-  Bookings:[{type: mongoose.Types.ObjectId, ref:"Booking"}],
+  Bookings: [{ type: mongoose.Types.ObjectId, ref: 'Booking' }],
   otp: {
     type: String,
   },
   otpExpiry: {
+    type: Date,
+  },
+  isVerified: {
     type: Boolean,
     default: false,
+  },
+  isGoogleUser: {
+    type: Boolean,
+    default: false, // Flag to indicate Google sign-in
+  },
+  googleId: {
+    type: String, // To store Google user ID
   },
 });
 

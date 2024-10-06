@@ -56,7 +56,7 @@ export const placeBooking = async (req, res) => {
       totalPrice,
       razorpayOrderId: order.id,
       paymentStatus: "pending",
-      userId,
+      userId: userId || req.user?.id,
     });
 
     const savedBooking = await newBooking.save();

@@ -1,17 +1,20 @@
-import Bookings from "../models/bookingModel.js";
-import Users from "../models/userModel.js"; // Ensure this import is correct
-import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
-import otpGenerator from "otp-generator";
-import jwt from "jsonwebtoken";
+import Bookings from '../models/bookingModel.js';
+import Users from '../models/userModel.js'; // Ensure this import is correct
+import bcrypt from 'bcrypt';
+import nodemailer from 'nodemailer';
+import otpGenerator from 'otp-generator';
+import jwt from 'jsonwebtoken'
+import { OAuth2Client } from 'google-auth-library';
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"; // Use a strong secret key
 
+const client = new OAuth2Client('426768408989-ebem9qoce769fkr8e1hdhj70oomthfft.apps.googleusercontent.com');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key'
 // *****************To get all the users********************
 export const getAllUsers = async (req, res, next) => {
   let users;
   try {
-    users = await Users.find();
+    users = await Users.find(); 
   } catch (err) {
     return console.log(err);
   }
@@ -22,66 +25,66 @@ export const getAllUsers = async (req, res, next) => {
   return res.status(200).json({ users });
 };
 
+
+// ***************User sign-Up***************************
 export const signup = async (req, res, next) => {
   const { phone, email, password } = req.body;
 
-  // Validate input fields
-  if (
-    !phone ||
-    phone.trim() === "" ||
-    !email ||
-    email.trim() === "" ||
-    !password ||
-    password.trim() === ""
-  ) {
-    return res.status(422).json({ message: "All fields are required" });
+  if (!phone || phone.trim() === "" || !email || email.trim() === "" || !password || password.trim() === "") {
+    return res.status(422).json({ message: "Please fill in all fields" });
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res
-      .status(422)
-      .json({ message: "Please enter a valid email address" });
-  }
-
-  if (password.length < 6) {
-    return res
-      .status(422)
-      .json({ message: "Password must be at least 6 characters long" });
-  }
-
-  if (phone.length < 10 || phone.length > 15) {
-    return res
-      .status(422)
-      .json({ message: "Please enter a valid phone number" });
-  }
-
-  const hashedPassword = bcrypt.hashSync(password);
+  const hashedPassword = bcrypt.hashSync(password, 10);
   let user;
+
   try {
-    user = new Users({
-      phone,
-      email,
-      password: hashedPassword,
-    });
+    user = new Users({ phone, email, password: hashedPassword });
     user = await user.save();
+
+    // Generate OTP and send it via email
+    const otp = otpGenerator.generate(6, { digits: true, upperCaseAlphabets: false, specialChars: false });
+    const otpExpiry = Date.now() + 4 * 60 * 1000;
+
+    // Update the user with OTP and expiry
+    user.otp = otp;
+    user.otpExpiry = otpExpiry;
+    await user.save();
+
+    // Send the OTP via email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      secure: true,
+      port: 465,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'OTP FOR SIGNUP',
+      text: `Your OTP for signup is: ${otp}`
+    };
+
+    await transporter.sendMail(mailOptions);
+
   } catch (err) {
-    return console.log(err);
-  }
-  if (!user) {
     return res.status(500).json({ message: "Unexpected error occurred" });
   }
-  return res.status(201).json({ id: user._id });
+
+  return res.status(201).json({ message: "Signup successful. Please verify OTP sent to your email." });
 };
 
-// ******************User login & Token generation***********************
+
+
+// ******************for the user login***********************
 export const login = async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || email.trim() === "" || !password || password.trim() === "") {
-    return res
-      .status(422)
-      .json({ message: "Please enter both email and password" });
+    return res.status(422).json({ message: "Please enter both email and password" });
   }
 
   let existingUser;
@@ -92,9 +95,7 @@ export const login = async (req, res, next) => {
   }
 
   if (!existingUser) {
-    return res
-      .status(404)
-      .json({ message: "Unable to find user with this email" });
+    return res.status(404).json({ message: "Unable to find user from this email" });
   }
 
   const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password);
@@ -102,155 +103,20 @@ export const login = async (req, res, next) => {
     return res.status(400).json({ message: "Invalid credentials" });
   }
 
-  // Generate JWT token
-  const token = jwt.sign(
-    { id: existingUser._id, email: existingUser.email },
-    JWT_SECRET,
-    {
-      expiresIn: "1h", // Token valid for 1 hour
-    }
-  );
+  // Generate a token and include it in the response
+  const token = jwt.sign({ userId: existingUser._id }, JWT_SECRET, { expiresIn: '1h' });
 
-  return res.status(200).json({ message: "Login success", token });
-};
-// ***************** To send OTP for email verification ********************
-export const sendOtp = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    // Check if user exists
-    const existingUser = await Users.findOne({ email });
-    if (!existingUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Generate OTP and expiry
-    const otp = otpGenerator.generate(6, {
-      digits: true,
-      upperCaseAlphabets: false,
-      specialChars: false,
-    });
-    const otpExpiry = Date.now() + 4 * 60 * 1000; // 4 minutes expiry
-
-    // Save OTP to user's record
-    existingUser.otp = otp;
-    existingUser.otpExpiry = otpExpiry;
-    await existingUser.save();
-
-    // Configure nodemailer
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      secure: true,
-      port: 465,
-      auth: {
-        user: process.env.EMAIL_ID,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // Email options
-    const mailOptions = {
-      from: process.env.EMAIL_ID,
-      to: email,
-      subject: "OTP FOR LOGIN",
-      text: `Hi,\n\nPlease use the following OTP to verify your Login\n\nOTP: ${otp}`,
-    };
-
-    // Send OTP email
-    await transporter.sendMail(mailOptions);
-
-    // Send successful response after email is sent
-    res.status(200).json({ message: "OTP sent successfully" });
-  } catch (error) {
-    console.error("Error sending OTP:", error);
-    if (!res.headersSent) {
-      res.status(500).json({ message: "Error sending OTP" });
-    }
-  }
+  return res.status(200).json({ 
+    message: "Login success",
+    token, // Include token in response
+    userId: existingUser._id 
+  });
 };
 
-// ********************Verify OTP & Generate Token***********************
-export const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
 
-  if (!email || !otp) {
-    return res.status(422).json({ message: "Email and OTP are required" });
-  }
-
-  try {
-    const user = await Users.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.otp !== otp || Date.now() > user.otpExpiry) {
-      user.otp = null;
-      user.otpExpiry = null;
-      await user.save();
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-
-    user.otp = null;
-    user.otpExpiry = null;
-    await user.save();
-
-    // Generate JWT token upon successful OTP verification
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, {
-      expiresIn: "1h", // Token valid for 1 hour
-    });
-
-    res
-      .status(200)
-      .json({ success: true, message: "OTP verified successfully", token });
-  } catch (error) {
-    console.error("Error verifying OTP:", error);
-    res.status(500).json({ message: "Error verifying OTP" });
-  }
-};
-
-export const googleSignIn = async (req, res, next) => {
-  const { email } = req.body;
-
-  if (!email || email.trim() === "") {
-    console.log("Email is missing or empty");
-    return res.status(422).json({ message: "Email is required" });
-  }
-
-  try {
-    console.log("Searching for user with email:", email);
-    // Check if a user with this email exists
-    const user = await Users.findOne({ email });
-
-    if (user) {
-      console.log("User found with ID:", user._id);
-      // User exists, return the user ID
-      return res.status(200).json({ userId: user._id });
-    } else {
-      console.log("User not found with email:", email);
-      // User does not exist
-      return res.status(404).json({ message: "User not found" });
-    }
-  } catch (error) {
-    console.error("Error during Google Sign-In:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const getUserDetails = async (req, res) => {
-  try {
-    const user = await Users.find({ _id: req.params.id });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.status(200).json(user[0]);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// ***************** Protect Routes with verifyToken middleware ***********
+//  *********************to get the bookings of the user***********************
 export const getBookingsOfUser = async (req, res, next) => {
-  const id = req.user.id; // Extract user ID from the verified token
+  const id = req.params.id;
   let bookings;
   try {
     bookings = await Bookings.find({ userId: id });
@@ -262,6 +128,149 @@ export const getBookingsOfUser = async (req, res, next) => {
   }
   return res.status(200).json({ bookings });
 };
+
+
+export const googleSignIn = async (req, res, next) => {
+  const { token } = req.body;
+
+  if (!token || token.trim() === "") {
+    return res.status(422).json({ message: "Google token is required" });
+  }
+
+  try {
+    console.log("Received Google Token:", token); // Log the token
+
+    // Verify the token using Google OAuth client
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID, // Ensure this is correctly set
+    });
+
+    // Log the payload from the ticket
+    const { email, name, picture, sub: googleId } = ticket.getPayload();
+    console.log("Ticket Payload:", { email, name, picture, googleId });
+
+    // Check if user exists in the database
+    let user = await Users.findOne({ email });
+
+    if (!user) {
+      // User does not exist, create a new user and send OTP
+      const otp = otpGenerator.generate(6, { digits: true, upperCaseAlphabets: false, specialChars: false });
+      const otpExpiry = Date.now() + 4 * 60 * 1000; // OTP valid for 4 minutes
+
+      user = new Users({
+        email,
+        name,
+        picture,
+        otp,
+        otpExpiry,
+        isGoogleUser: true,  // Set flag for Google user
+        googleId,
+        isVerified: false,
+      });
+      await user.save();
+
+      console.log("New Google User Saved:", user);
+      // Send OTP to email
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        secure: true,
+        port: 465,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'OTP FOR GOOGLE SIGN-UP',
+        text: `Your OTP for verification is: ${otp}. This OTP is valid for 4 minutes.`,
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      return res.status(200).json({ message: "OTP sent successfully. Please verify to complete signup." });
+    }
+
+    // Existing user and is verified
+    if (user.isVerified) {
+      const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+      return res.status(200).json({
+        message: "Login successful",
+        token,
+        user: { email: user.email, userId: user._id, name: user.name, picture: user.picture },
+      });
+    }
+
+    // User exists but not verified
+    return res.status(403).json({ message: "Please verify your OTP to complete the sign-up process." });
+
+  } catch (error) {
+    console.error("Error during Google Sign-In:", error.response ? error.response.data : error.message);
+    return res.status(500).json({ message: "Server error", error });
+  }  
+};
+
+
+
+// ***********************To get the Logged-in User details*****************
+export const getUserDetails = async (req, res) => {
+  try {
+    const user = await Users.find({_id:req.params.id});
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user[0]);
+
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+export const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(422).json({ message: "Email and OTP are required" });
+  }
+
+  try {
+    const user = await Users.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.otp || user.otp !== otp || Date.now() > user.otpExpiry) {
+      // Clear OTP if invalid or expired
+      user.otp = null;
+      user.otpExpiry = null;
+      await user.save();
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Clear OTP fields after successful verification
+    user.otp = null;
+    user.otpExpiry = null;
+    user.isVerified = true;  // Mark the user as verified
+    await user.save();
+
+    // Generate a JWT token or handle login session
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    return res.status(200).json({ success: true, token, userId: user._id });
+
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    return res.status(500).json({ message: "Error verifying OTP", error });
+  }
+};
+
+
 
 
 // **************to get the userid of the loggedin user from google login***************
