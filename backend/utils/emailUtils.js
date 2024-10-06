@@ -1,18 +1,18 @@
-import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-  service: 'Gmail', // You can use any email service provider
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+import nodemailer from "nodemailer";
 
 export const sendOtpEmail = async (email, otp) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Your OTP for Email Verification',
+    subject: "Your OTP for email verification",
     text: `Your OTP is: ${otp}`,
   };
 

@@ -9,7 +9,7 @@ const showSchema = new mongoose.Schema(
     theatres: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'theatre', // Reference to the theatreModel
+        ref: 'Theatre', // Reference to the theatreModel
         required: true,
       },
     ], // Allow multiple theatres

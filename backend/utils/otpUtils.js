@@ -1,6 +1,24 @@
-import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
-// Generate a random OTP (6 characters)
 export const generateOtp = () => {
-  return crypto.randomBytes(3).toString('hex');
+  return Math.floor(100000 + Math.random() * 900000).toString(); // Generates a 6-digit OTP
+};
+
+export const sendOtpMail = async (email, otp) => {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER, // Your email ID
+      pass: process.env.EMAIL_PASS, // Your email password
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Your OTP Code',
+    text: `Your OTP is ${otp}`,
+  };
+
+  await transporter.sendMail(mailOptions);
 };

@@ -37,7 +37,10 @@
     "validator": "^13.12.0"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/nodemailer": "^6.4.16",
     "@types/passport-google-oauth20": "^2.0.16",
+    "@types/qrcode": "^1.5.5",
     "passport": "^0.7.0"
   }
 }

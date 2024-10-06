@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
-import adminModel from '../Models/adminModel.js';
+import adminModel from '../models/adminModel.js';
 
 // Create a JWT token
 const createToken = (id) => {

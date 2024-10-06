@@ -1,21 +1,33 @@
-import { Router } from 'express';
-import { registerUser, verifyOtp, loginUser } from '../controllers/userController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import express from "express";
+import { getAllUsers, getBookingsOfUser, getUserByEmail, getUserDetails, googleSignIn, login, sendOtp, signup, verifyOtp } from "../controllers/user-controller.js";
+import { verifyToken } from "../middleware/auth.js";
 
-const userRouter = Router();
 
-// Register a new user via Google OAuth
-userRouter.post('/register', registerUser);
+const userRouter = express.Router();
 
-// Verify OTP and generate JWT token
-userRouter.post('/verify-otp', verifyOtp);
+// To get the all users
+userRouter.get("/", getAllUsers); //localhost:5000/user
 
-// Login an existing user and generate JWT token
-userRouter.post('/login', loginUser);
+userRouter.get("/:id", getUserDetails);
 
-// Example of a protected route using JWT authentication
-userRouter.get('/protected-route', authMiddleware, (req, res) => {
-  res.status(200).json({ message: 'You have access to this protected route', user: req.user });
-});
+// To signup a user
+userRouter.post("/signup", signup);
 
-export default userRouter;
+// login
+userRouter.post("/login", login);
+
+// To get the bookings of the user
+userRouter.get("/bookings/:id", verifyToken, getBookingsOfUser);
+
+userRouter.post("/google-signin",  googleSignIn);
+
+// Send OTP
+userRouter.post("/send-otp", sendOtp);
+
+// Verify OTP
+userRouter.post("/verify-otp", verifyOtp);
+
+userRouter.post("/getUserByEmail",  getUserByEmail);
+
+
+export default userRouter

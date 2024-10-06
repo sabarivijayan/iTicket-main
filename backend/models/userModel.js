@@ -1,33 +1,27 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
-  googleId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
   email: {
     type: String,
     required: true,
     unique: true,
   },
-  name: {
-    type: String,
+  phone: {
+    type: Number,
     required: true,
   },
+  password:{
+    type: String,
+    required: true,
+    minLength: 6,
+  },
+  Bookings:[{type: mongoose.Types.ObjectId, ref:"Booking"}],
   otp: {
     type: String,
   },
-  otpVerified: {
+  otpExpiry: {
     type: Boolean,
     default: false,
-  },
-  avatar:{
-    type:String,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
   },
 });
 
