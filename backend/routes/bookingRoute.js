@@ -7,6 +7,6 @@ const bookingRouter = express.Router();
 // Routes
 bookingRouter.post('/place', verifyToken,placeBooking);
 bookingRouter.post('/payment-success', verifyToken, handlePaymentSuccess);
-bookingRouter.get('/list', listBookings);
+bookingRouter.get('/list', verifyToken, listBookings);
 
 export default bookingRouter;

@@ -40,6 +40,24 @@ export const placeBooking = async (req, res) => {
   const { movieName, theatreName, showtime, date, bookedSeats, totalPrice, userId } = req.body;
 
   try {
+
+    const existingBookings = await bookingModel.find({
+      theatreName,
+      showtime,
+      date,
+      bookedSeats: { $in: bookedSeats }, // Check if any of the selected seats are already booked
+    });
+
+    if (existingBookings.length > 0) {
+      const alreadyBookedSeats = existingBookings.flatMap(booking => booking.bookedSeats);
+      const conflictingSeats = bookedSeats.filter(seat => alreadyBookedSeats.includes(seat));
+
+      return res.status(400).json({
+        success: false,
+        message: `The following seats are already booked: ${conflictingSeats.join(", ")}.`,
+      });
+    }
+
     const orderOptions = {
       amount: totalPrice * 100, // Convert to paise
       currency: "INR",
@@ -110,12 +128,36 @@ export const handlePaymentSuccess = async (req, res) => {
 };
 
 // List all bookings
+// List bookings for a specific movie, theatre, date, and showtime
 export const listBookings = async (req, res) => {
+  const { movieName, theatreName, date, showtime } = req.query;
+
   try {
-    const bookings = await bookingModel.find();
-    res.json({ success: true, data: bookings });
+    // Construct the query object dynamically
+    const query = { userId: req.user.id }; // Filter by userId
+    
+    if (movieName) query.movieName = movieName;
+    if (theatreName) query.theatreName = theatreName;
+    if (showtime) query.showtime = showtime;
+    
+    // Check if the date is valid before including it in the query
+    if (date && !isNaN(Date.parse(date))) {
+      query.date = new Date(date); // Convert to a valid date object
+    }
+
+    // Find all bookings for the specific user and provided filters
+    const bookings = await bookingModel.find(query);
+
+    // Collect booked seats and add it to each booking detail
+    const bookingsWithSeats = bookings.map(booking => ({
+      ...booking.toObject(), // Convert mongoose object to plain JavaScript object
+      bookedSeats: booking.bookedSeats, // Add booked seats to the booking details
+    }));
+
+    res.json({ success: true, data: bookingsWithSeats });
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ success: false, message: "Failed to fetch bookings" });
   }
 };
+
